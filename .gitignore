@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+
+# Security 
+.env
+
+# Database
+*.sql
+!schema.sql
+!seed.sql
+
+# macOS
+.DS_Store
