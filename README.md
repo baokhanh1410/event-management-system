@@ -27,14 +27,34 @@ A comprehensive Event Management platform focusing on organizing, financial trac
 
 ## Getting Started
 
-1. **Install dependencies:**
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/baokhanh1410/event-management-system
+   ```
+
+2. **Set up Virtual Environment (Recommended):**
+   The use of virtual environments helps avoid library conflicts between projects.
+
+   **Windows:**
+   ```bash
+   python -m venv .venv
+   .venv\Scripts\activate
+   ```
+
+   **macOS/Linux:**
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. **Install dependencies:**
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Configure Database:**
+4. **Configure Database:**
    Ensure MySQL is running.
-   Create .env file and add the following information:
+   Create .env file at the root of the project and add the following information:
    ```
    DB_USER=your_username
    DB_PASSWORD=your_password
@@ -44,17 +64,19 @@ A comprehensive Event Management platform focusing on organizing, financial trac
    ```
    Running `python setup.py` (windows) or `./setup.py` (macos/linux) will setup all the tables, data, users and permissions into the database.
 
-3. **Run the application:**
+5. **Run the application:**
    ```bash
    streamlit run app.py
    ```
 
-4. **Default Users:**
-   - Username: `admin` | Password: `admin123` | Role: Admin
-   - Username: `staff01` | Password: `staff123` | Role: Staff
-   - Username: `organizer01` | Password: `organizer123` | Role: Organizer
-   - Username: `guest01` | Password: `guest123` | Role: Guest
-   - Username: `guest02` | Password: `guest123` | Role: Guest
-   - Username: `guest03` | Password: `guest123` | Role: Guest
-   - Username: `guest04` | Password: `guest123` | Role: Guest
-   - Username: `guest05` | Password: `guest123` | Role: Guest
+6. **Default Users:**
+| Username | Password | Role |
+| :--- | :--- | :--- |
+| `admin` | `admin123` | Admin |
+| `staff01` | `staff123` | Staff |
+| `organizer01` | `organizer123` | Organizer |
+| `guest01` | `guest123` | Guest |
+| `guest02` | `guest123` | Guest |
+| `guest03` | `guest123` | Guest |
+| `guest04` | `guest123` | Guest |
+| `guest05` | `guest123` | Guest |
