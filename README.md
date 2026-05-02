@@ -42,7 +42,7 @@ A comprehensive Event Management platform focusing on organizing, financial trac
    DB_PORT=your_port
    DB_NAME=event_management
    ```
-   Running `python setup.py` (windows) or `./setup.py` (macos/linux) will setupp all the tables, data, users and permissions into the database.
+   Running `python setup.py` (windows) or `./setup.py` (macos/linux) will setup all the tables, data, users and permissions into the database.
 
 3. **Run the application:**
    ```bash
