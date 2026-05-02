@@ -34,3 +34,6 @@ ENV/
 
 # Project specific
 .DS_Store
+
+# SQL
+sql/seed.sql
