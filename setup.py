@@ -6,16 +6,23 @@ from sqlalchemy.orm import sessionmaker
 from src.sample_data import generate_seed_data, insert_seed_data
 
 load_dotenv()
-# Database credentials
+
+# ============================================================
+# DATABASE CREDENTIALS
+# ============================================================
 DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 DB_NAME = os.getenv('DB_NAME')
 
+# ============================================================
+# ENGINE & DATABASE SETUP
+# ============================================================
+
 def get_server_engine():
     """
-    Create engine to connect to MySQL server
+    Create engine to connect to MySQL server without selecting a DB.
     """
     password = urllib.parse.quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
     url = f"mysql+pymysql://{DB_USER}:{password}@{DB_HOST}:{DB_PORT}/"
@@ -23,7 +30,7 @@ def get_server_engine():
 
 def get_db_engine():
     """
-    Create engine to connect to database
+    Create engine to connect to the specific database.
     """
     password = urllib.parse.quote_plus(DB_PASSWORD) if DB_PASSWORD else ""
     url = f"mysql+pymysql://{DB_USER}:{password}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -31,7 +38,7 @@ def get_db_engine():
 
 def create_database():
     """
-    Drop if exist and create database
+    Drop database if exists and create a new one.
     """
     engine = get_server_engine()
     with engine.connect() as conn:
@@ -39,7 +46,11 @@ def create_database():
         conn.execute(text(f"CREATE DATABASE `{DB_NAME}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
         conn.commit()
     engine.dispose()
-    print(f"✅ Database `{DB_NAME}` đã được tạo mới.")
+    print(f"✅ Database `{DB_NAME}` has been created successfully.")
+
+# ============================================================
+# SCHEMA EXECUTION
+# ============================================================
 
 def execute_schema():
     """Read and execute schema.sql to create all tables, SPs, and views."""
@@ -48,28 +59,28 @@ def execute_schema():
         schema_sql = f.read()
 
     with engine.connect() as conn:
-        # Tách phần có DELIMITER (Stored Procedures) ra riêng
+        # Separate blocks with DELIMITER (Stored Procedures)
         parts = schema_sql.split('DELIMITER //')
         
-        # Phần 1: Các câu lệnh bình thường (trước DELIMITER)
+        # Part 1: Normal statements (before DELIMITER)
         normal_sql = parts[0]
         for statement in normal_sql.split(';'):
             stmt = statement.strip()
             if stmt:
                 conn.execute(text(stmt))
         
-        # Phần 2+: Các Stored Procedure blocks
+        # Part 2+: Stored Procedure blocks
         for i in range(1, len(parts)):
             sp_block = parts[i]
-            # Tách SP body (kết thúc bởi //) và phần sau DELIMITER ;
+            # Separate SP body (ends with //) and statements after DELIMITER ;
             sp_parts = sp_block.split('//')
             
-            # SP body (phần trước //)
+            # SP body (part before //)
             sp_body = sp_parts[0].strip()
             if sp_body:
                 conn.execute(text(sp_body))
             
-            # Phần sau DELIMITER ; (views, etc.)
+            # Part after DELIMITER ; (views, etc.)
             if len(sp_parts) > 1:
                 remaining = sp_parts[1].replace('DELIMITER ;', '').strip()
                 for statement in remaining.split(';'):
@@ -79,7 +90,11 @@ def execute_schema():
         
         conn.commit()
     engine.dispose()
-    print("✅ Schema (tables, indexes, foreign keys, SPs, views) đã được tạo.")
+    print("✅ Schema (tables, indexes, foreign keys, SPs, views) executed successfully.")
+
+# ============================================================
+# MAIN ORCHESTRATION
+# ============================================================
 
 def main():
     print("=" * 50)
@@ -87,26 +102,26 @@ def main():
     print("=" * 50)
 
     # Step 1: Create database
-    print("\n[1/4] Create database...")
+    print("\n[1/4] Creating database...")
     create_database()
 
     # Step 2: Run schema.sql
-    print("\n[2/4] Create table from schema.sql...")
+    print("\n[2/4] Executing schema.sql...")
     execute_schema()
 
-    # Step 3: Create seed data
-    print("\n[3/4] Create seed data...")
+    # Step 3: Generate seed data
+    print("\n[3/4] Generating seed data...")
     generate_seed_data()
 
     # Step 4: Insert seed data
-    print("\n[4/4] Insert seed data...")
+    print("\n[4/4] Inserting seed data...")
     engine = get_db_engine()
     Session = sessionmaker(bind=engine)
     session = Session()
     try:
         insert_seed_data(session)
     except Exception as e:
-        print(f"❌ Error when insert seed data: {e}")
+        print(f"❌ Error while inserting seed data: {e}")
     finally:
         session.close()
         engine.dispose()

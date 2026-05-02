@@ -6,10 +6,17 @@ from sqlalchemy.orm import sessionmaker
 
 load_dotenv()
 
+# ============================================================
+# DATABASE CONNECTION MANAGEMENT
+# ============================================================
+
 # Singleton engine — created once, reused for all sessions
 _engine = None
 
 def get_db_engine():
+    """
+    Create or retrieve the singleton SQLAlchemy engine instance.
+    """
     global _engine
     if _engine is not None:
         return _engine
@@ -20,12 +27,12 @@ def get_db_engine():
     port = os.getenv('DB_PORT')
     database = os.getenv('DB_NAME')
 
-    # Validate required env vars
+    # Validate required environment variables
     if not all([user, host, port, database]):
-        print("Error: Missing environment variables DB (DB_USER, DB_HOST, DB_PORT, DB_NAME).")
+        print("Error: Missing database environment variables (DB_USER, DB_HOST, DB_PORT, DB_NAME).")
         return None
 
-    # Encoding password to handle special characters if any
+    # Encoding password to handle any special characters
     password = urllib.parse.quote_plus(raw_password) if raw_password else ""
     
     connection_string = f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}"
@@ -41,6 +48,9 @@ def get_db_engine():
         return None
 
 def get_session():
+    """
+    Provide a SQLAlchemy session object for database operations.
+    """
     engine = get_db_engine()
     if engine:
         Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)

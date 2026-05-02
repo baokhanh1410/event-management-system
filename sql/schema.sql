@@ -1,3 +1,7 @@
+-- ============================================================
+-- CORE TABLES
+-- ============================================================
+
 -- events
 CREATE TABLE `events`(
     `event_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -45,6 +49,10 @@ CREATE TABLE `organizers`(
     `phone_number` VARCHAR(16) NOT NULL
 );
 
+-- ============================================================
+-- ATTENDANCE & FINANCE TABLES
+-- ============================================================
+
 -- registrations
 CREATE TABLE `registrations`(
     `registration_id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -73,7 +81,11 @@ CREATE TABLE `event_finance`(
     `actual_cost` DECIMAL(15, 2) NOT NULL
 );
 
--- roles (removed permission_id, now uses role_permissions junction table)
+-- ============================================================
+-- RBAC TABLES (Role-Based Access Control)
+-- ============================================================
+
+-- roles 
 CREATE TABLE `roles`(
     `role_id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
     `role_name` VARCHAR(50) NOT NULL
@@ -104,7 +116,10 @@ CREATE TABLE `users`(
 );
 ALTER TABLE `users` ADD INDEX `users_username_index`(`username`);
 
--- foreign_keys
+-- ============================================================
+-- FOREIGN KEYS
+-- ============================================================
+
 ALTER TABLE `users` ADD CONSTRAINT `users_role_id_foreign` FOREIGN KEY(`role_id`) REFERENCES `roles`(`role_id`);
 ALTER TABLE `users` ADD CONSTRAINT `users_guest_id_foreign` FOREIGN KEY(`guest_id`) REFERENCES `guests`(`guest_id`);
 ALTER TABLE `registrations` ADD CONSTRAINT `registrations_guest_id_foreign` FOREIGN KEY(`guest_id`) REFERENCES `guests`(`guest_id`);
@@ -121,34 +136,34 @@ ALTER TABLE `event_categories` ADD CONSTRAINT `event_categories_category_id_fore
 -- STORED PROCEDURES
 -- ============================================================
 
--- Stored Procedure: Check-in khách mời
+-- Stored Procedure: Guest Check-in Logic
 DELIMITER //
 CREATE PROCEDURE sp_check_in_guest(IN p_registration_id BIGINT UNSIGNED)
 BEGIN
     DECLARE v_exists INT DEFAULT 0;
     DECLARE v_already_checked_in INT DEFAULT 0;
 
-    -- Kiểm tra registration có tồn tại không
+    -- Check if registration exists
     SELECT COUNT(*) INTO v_exists
     FROM registrations
     WHERE registration_id = p_registration_id;
 
     IF v_exists = 0 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Không tìm thấy bản đăng ký với ID này.';
+        SET MESSAGE_TEXT = 'Cannot find registration with this ID.';
     END IF;
 
-    -- Kiểm tra đã check-in chưa
+    -- Check if already checked in
     SELECT attendance_status INTO v_already_checked_in
     FROM registrations
     WHERE registration_id = p_registration_id;
 
     IF v_already_checked_in = 1 THEN
         SIGNAL SQLSTATE '45000'
-        SET MESSAGE_TEXT = 'Khách đã check-in trước đó.';
+        SET MESSAGE_TEXT = 'Guest has already checked in.';
     END IF;
 
-    -- Thực hiện check-in
+    -- Execute check-in
     UPDATE registrations
     SET attendance_status = 1
     WHERE registration_id = p_registration_id;
@@ -159,7 +174,7 @@ DELIMITER ;
 -- VIEWS
 -- ============================================================
 
--- View: Tổng hợp tỉ lệ tham dự theo sự kiện
+-- View: Event Attendance Summary
 CREATE VIEW vw_event_attendance_summary AS
 SELECT
     e.event_id,
@@ -180,7 +195,7 @@ LEFT JOIN registrations r ON e.event_id = r.event_id
 GROUP BY e.event_id, e.event_name, e.event_date, v.venue_name
 ORDER BY e.event_date DESC;
 
--- View: Tổng hợp tài chính theo sự kiện
+-- View: Finance Summary
 CREATE OR REPLACE VIEW vw_finance_summary AS
 SELECT
     f.finance_id,

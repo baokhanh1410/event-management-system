@@ -3,15 +3,25 @@ import bcrypt
 from sqlalchemy import text
 from faker import Faker
 from datetime import datetime, timedelta
+
 fake = Faker()
 NUM_EVENTS = 50
 NUM_GUESTS = 510
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
 
 # Function to handle single quotes in strings (very common with Faker)
 def escape_str(text):
     return str(text).replace("'", "''")
 
+# ============================================================
+# SEED DATA GENERATION
+# ============================================================
+
 def generate_seed_data():
+    """Generates SQL insert statements for dummy data and writes to seed.sql"""
     with open('sql/seed.sql', 'w', encoding='utf-8') as f:
         # Disable foreign key checks to avoid order-related insertion errors
         f.write("SET FOREIGN_KEY_CHECKS = 0;\n\n")
@@ -39,18 +49,17 @@ def generate_seed_data():
             f.write(f"INSERT INTO categories (category_id, category_name) VALUES ({i}, '{cat}');\n")
 
         # ============================================================
-        # PRE-CALCULATE: Xác định registrations cho mỗi event trước
-        # để tính base_price hợp lý (revenue ≈ cost)
+        # PRE-CALCULATION logic for Attendance & Prices
         # ============================================================
         event_statuses = {}
         event_reg_map = {}  # event_id -> list of (guest_id, att_status, fb_rating)
         
-        # Gán status cho mỗi event
+        # Assign random status to each event
         statuses = ['Upcoming', 'Ongoing', 'Completed', 'Cancelled']
         for i in range(1, NUM_EVENTS + 1):
             event_statuses[i] = random.choice(statuses)
         
-        # Pre-assign registrations: mỗi guest đăng ký 1-4 events
+        # Pre-assign registrations: each guest registers for 1-4 events
         for i in range(1, NUM_EVENTS + 1):
             event_reg_map[i] = []
         
@@ -58,7 +67,7 @@ def generate_seed_data():
             num_events = random.randint(1, 4)
             selected_events = random.sample(range(1, NUM_EVENTS + 1), num_events)
             for e_id in selected_events:
-                # Check-in rate phụ thuộc status
+                # Check-in rate depends on event status
                 status = event_statuses[e_id]
                 if status == 'Completed':
                     att_status = random.random() < random.uniform(0.7, 0.9)
@@ -71,18 +80,18 @@ def generate_seed_data():
                 event_reg_map[e_id].append((g_id, att_status, fb_rating))
 
         # ============================================================
-        # 4. Sample data for Events (base_price tính từ planned_budget)
+        # 4. Sample data for Events (base_price derived from planned_budget)
         # ============================================================
         f.write("\n-- Data for Events\n")
-        event_data = {}  # Lưu thông tin để dùng ở phần Finance
+        event_data = {}  # Save info for Finance data generation later
         for i in range(1, NUM_EVENTS + 1):
             name = escape_str(fake.catch_phrase() + " Event")
             
-            # Tạo thời gian bắt đầu ngẫu nhiên
+            # Generate random start time
             start_dt = fake.date_time_between(start_date='-1y', end_date='+1y')
             start_str = start_dt.strftime('%Y-%m-%d %H:%M:%S')
             
-            # Tạo end_time: cộng thêm từ 1 đến 4 giờ ngẫu nhiên
+            # Generate end_time: add 1 to 4 hours randomly
             end_dt = start_dt + timedelta(hours=random.randint(1, 4))
             end_str = end_dt.strftime('%Y-%m-%d %H:%M:%S')
             
@@ -90,16 +99,16 @@ def generate_seed_data():
             o_id = random.randint(1, NUM_EVENTS)
             status = event_statuses[i]
             
-            # Tính base_price từ planned_budget và expected checkin count
+            # Calculate base_price from planned_budget and expected check-in count
             planned = round(random.uniform(5000.0, 20000.0), 2)
             checkin_count = sum(1 for _, att, _ in event_reg_map[i] if att)
             total_regs = len(event_reg_map[i])
             
             if checkin_count > 0:
-                # base_price sao cho revenue (checkin × price) ≈ planned × markup
+                # Calculate base_price so revenue (checkin × price) ≈ planned × markup
                 markup = random.uniform(1.0, 1.5)
                 base_price = round((planned * markup) / checkin_count, 2)
-                # Giới hạn trong khoảng hợp lý 20–800
+                # Keep within a reasonable range 20–800
                 base_price = max(20.0, min(800.0, base_price))
             else:
                 base_price = round(random.uniform(50.0, 300.0), 2)
@@ -118,7 +127,7 @@ def generate_seed_data():
                 f.write(f"INSERT INTO event_categories (event_id, category_id) VALUES ({i}, {cat_id});\n")
 
         # 4.2 Sample data for Event Finance
-        # actual_cost = planned_budget × uniform(0.8, 1.2) — biến động ±20%
+        # actual_cost = planned_budget × uniform(0.8, 1.2) — variance ±20%
         f.write("\n-- Data for Event Finances\n")
         for i in range(1, NUM_EVENTS + 1):
             planned = event_data[i]['planned']
@@ -133,7 +142,7 @@ def generate_seed_data():
             phone = fake.phone_number()[:16]
             f.write(f"INSERT INTO guests (guest_id, guest_name, guest_email, phone_number) VALUES ({i}, '{name}', '{email}', '{phone}');\n")
 
-        # 6. Sample data for Registrations (từ pre-calculated data)
+        # 6. Sample data for Registrations (from pre-calculated data)
         f.write("\n-- Data for Registrations\n")
         reg_id = 1
         for e_id in range(1, NUM_EVENTS + 1):
@@ -143,21 +152,22 @@ def generate_seed_data():
                 f.write(f"INSERT INTO registrations (registration_id, event_id, guest_id, registration_date, attendance_status, feedback_rating) VALUES ({reg_id}, {e_id}, {g_id}, '{reg_date}', {att_str}, {fb_rating});\n")
                 reg_id += 1
 
-        # 7. RBAC: Permissions
+        # ============================================================
+        # 7. RBAC: ROLES & PERMISSIONS
+        # ============================================================
         f.write("\n-- Data for Permissions (RBAC)\n")
         permissions = [
-            (1, 'manage_event', 'Tạo, sửa, xoá sự kiện'),
-            (2, 'view_public_events', 'Xem danh sách sự kiện công khai'),
-            (3, 'manage_finance', 'Quản lý tài chính sự kiện'),
-            (4, 'register_guests', 'Đăng ký sự kiện cho khách'),
-            (5, 'view_analytics', 'Xem báo cáo và thống kê'),
-            (6, 'manage_users', 'Quản lý tài khoản người dùng'),
-            (7, 'attendance_checkin', 'Thực hiện điểm danh'),
+            (1, 'manage_event', 'Create, update, delete events'),
+            (2, 'view_public_events', 'View public event listings'),
+            (3, 'manage_finance', 'Manage event finances'),
+            (4, 'register_guests', 'Register guests for events'),
+            (5, 'view_analytics', 'View reports and statistics'),
+            (6, 'manage_users', 'Manage user accounts'),
+            (7, 'attendance_checkin', 'Perform guest check-ins'),
         ]
         for pid, pname, pdesc in permissions:
             f.write(f"INSERT INTO permissions (permission_id, permission_name, description) VALUES ({pid}, '{pname}', '{escape_str(pdesc)}');\n")
 
-        # 8. RBAC: Roles
         f.write("\n-- Data for Roles (RBAC)\n")
         roles = [
             (1, 'Admin'),
@@ -168,7 +178,6 @@ def generate_seed_data():
         for rid, rname in roles:
             f.write(f"INSERT INTO roles (role_id, role_name) VALUES ({rid}, '{rname}');\n")
 
-        # 9. RBAC: Role-Permission mappings (N-N)
         f.write("\n-- Data for Role_Permissions (RBAC N-N)\n")
         role_perms = [
             # Admin: full access
@@ -183,7 +192,7 @@ def generate_seed_data():
         for rid, pid in role_perms:
             f.write(f"INSERT INTO role_permissions (role_id, permission_id) VALUES ({rid}, {pid});\n")
 
-        # 10. RBAC: Users with bcrypt hashed passwords
+        # 8. RBAC: Users with bcrypt hashed passwords
         f.write("\n-- Data for Users (RBAC)\n")
         users = [
             (1, 'admin', 'admin123', 1, 'NULL'),
@@ -198,12 +207,17 @@ def generate_seed_data():
             hashed = bcrypt.hashpw(raw_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             f.write(f"INSERT INTO users (user_id, username, password_hash, role_id, guest_id) VALUES ({uid}, '{uname}', '{hashed}', {rid}, {gid});\n")
 
-        # Bật lại kiểm tra khóa ngoại
+        # Re-enable foreign key checks
         f.write("\nSET FOREIGN_KEY_CHECKS = 1;\n")
 
     print(f"Successfully generated {NUM_EVENTS} events and {NUM_GUESTS} guests sample data in 'sql/seed.sql'.")
 
+# ============================================================
+# INSERTION SCRIPT
+# ============================================================
+
 def insert_seed_data(session):
+    """Reads seed.sql and executes the statements in batches"""
     with open('sql/seed.sql', 'r', encoding='utf-8') as f:
         sql_commands = f.read().split(';')
     

@@ -2,12 +2,20 @@ import bcrypt
 from sqlalchemy import text
 import streamlit as st
 
+# ============================================================
+# PASSWORD HASHING & VERIFICATION
+# ============================================================
+
 def hash_password(password: str) -> str:
     salt = bcrypt.gensalt()
     return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
 
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+# ============================================================
+# USER AUTHENTICATION
+# ============================================================
 
 def authenticate_user(session, username, password):
     query = text("""
@@ -23,23 +31,27 @@ def authenticate_user(session, username, password):
 
     if result:
         stored_hash = result[0][1]
-        # Kiểm tra mật khẩu
+        # Verify password
         if verify_password(password, stored_hash):
             user_data = {
                 "user_id": result[0][0],
                 "role": result[0][2],
                 "guest_id": result[0][4],
-                "permissions": [row[3] for row in result] # Danh sách các permission_name
+                "permissions": [row[3] for row in result] # List of permission_names
             }
             return user_data
     return None
+
+# ============================================================
+# REGISTRATION
+# ============================================================
 
 def register_new_guest_user(session, username, password, name, email, phone):
     try:
         # Check if username exists
         check_query = text("SELECT COUNT(*) FROM users WHERE username = :username")
         if session.execute(check_query, {"username": username}).scalar() > 0:
-            return False, "Tên đăng nhập đã tồn tại!"
+            return False, "Username already exists!"
             
         # 1. Insert into guests
         insert_guest = text("""
@@ -64,10 +76,14 @@ def register_new_guest_user(session, username, password, name, email, phone):
         })
         
         session.commit()
-        return True, "Đăng ký thành công! Hãy đăng nhập."
+        return True, "Registration successful! Please login."
     except Exception as e:
         session.rollback()
-        return False, f"Lỗi hệ thống: {str(e)}"
+        return False, f"System error: {str(e)}"
+
+# ============================================================
+# AUTHORIZATION (RBAC)
+# ============================================================
 
 def has_permission(permission_name):
     if 'user_info' not in st.session_state or st.session_state.user_info is None:
