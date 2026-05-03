@@ -70,6 +70,7 @@ A comprehensive Event Management platform focusing on organizing, financial trac
    ```
 
 6. **Default Users:**
+
 | Username    | Password     | Role      |
 |:------------|:-------------|:----------|
 | admin       | admin123     | Admin     |
