@@ -70,13 +70,13 @@ A comprehensive Event Management platform focusing on organizing, financial trac
    ```
 
 6. **Default Users:**
-| Username | Password | Role |
-| :--- | :--- | :--- |
-| `admin` | `admin123` | Admin |
-| `staff01` | `staff123` | Staff |
-| `organizer01` | `organizer123` | Organizer |
-| `guest01` | `guest123` | Guest |
-| `guest02` | `guest123` | Guest |
-| `guest03` | `guest123` | Guest |
-| `guest04` | `guest123` | Guest |
-| `guest05` | `guest123` | Guest |
+| Username    | Password     | Role      |
+|:------------|:-------------|:----------|
+| admin       | admin123     | Admin     |
+| staff01     | staff123     | Staff     |
+| organizer01 | organizer123 | Organizer |
+| guest01     | guest123     | Guest     |
+| guest02     | guest123     | Guest     |
+| guest03     | guest123     | Guest     |
+| guest04     | guest123     | Guest     |
+| guest05     | guest123     | Guest     |
