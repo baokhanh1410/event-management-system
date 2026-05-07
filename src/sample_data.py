@@ -187,7 +187,7 @@ def generate_seed_data():
             # Guest: view only
             (3, 2),
             # Organizer: manage_event, view_public_events, register_guests, view_analytics
-            (4, 1), (4, 2), (4, 4), (4, 5),
+            (4, 1), (4, 2), (4, 4),
         ]
         for rid, pid in role_perms:
             f.write(f"INSERT INTO role_permissions (role_id, permission_id) VALUES ({rid}, {pid});\n")
