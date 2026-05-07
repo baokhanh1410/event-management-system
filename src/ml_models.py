@@ -6,10 +6,38 @@ from src.crud import get_data_for_recommendation, get_all_events
 # ML DATA PREPROCESSING
 # ============================================================
 
-def preprocess_features(df):
+def compute_guest_profiles(df):
+    """
+    Compute guest profile metrics (historical avg_price, category frequencies) 
+    from their registration history.
+    """
+    if df.empty or 'guest_id' not in df.columns:
+        return pd.DataFrame()
+        
+    # 1. Compute historical avg_price per guest
+    avg_price = df.groupby('guest_id')['base_price'].mean().reset_index()
+    avg_price.rename(columns={'base_price': 'guest_avg_price'}, inplace=True)
+    
+    # 2. Compute category frequencies
+    if 'categories' not in df.columns:
+        return avg_price
+        
+    cats = df['categories'].str.get_dummies(sep=', ')
+    cats['guest_id'] = df['guest_id']
+    cat_freq = cats.groupby('guest_id').sum().reset_index()
+    
+    # Rename category columns to indicate they are guest profile features
+    cat_freq.columns = [f'guest_freq_{c}' if c != 'guest_id' else c for c in cat_freq.columns]
+    
+    # Merge
+    profile = pd.merge(avg_price, cat_freq, on='guest_id', how='left')
+    return profile
+
+def preprocess_features(df, guest_profiles=None):
     """
     Preprocessing step:
     1. Convert 'categories' string into One-Hot Encoding columns.
+    2. Join guest profile metrics if provided.
     """
     if 'categories' in df.columns:
         # categories string looks like "Conference, Workshop", split using get_dummies
@@ -17,6 +45,11 @@ def preprocess_features(df):
         df_processed = pd.concat([df.drop(columns=['categories']), cats], axis=1)
     else:
         df_processed = df.copy()
+        
+    if guest_profiles is not None and not guest_profiles.empty and 'guest_id' in df_processed.columns:
+        df_processed = pd.merge(df_processed, guest_profiles, on='guest_id', how='left')
+        # Fill NaN for missing guests (cold start)
+        df_processed.fillna(0, inplace=True)
         
     return df_processed
 
@@ -35,8 +68,11 @@ def train_xgboost_recommender(session):
     if data.empty or len(data['attendance_status'].unique()) < 2:
         return None, None
         
-    # Preprocess categorical features
-    df_processed = preprocess_features(data)
+    # Compute guest profiles
+    guest_profiles = compute_guest_profiles(data)
+        
+    # Preprocess categorical features and join guest profiles
+    df_processed = preprocess_features(data, guest_profiles)
     
     # Define features: exclude IDs and target columns
     drop_cols = ['guest_id', 'event_id', 'attendance_status', 'status']
@@ -82,7 +118,9 @@ def get_recommended_events(session, guest_id, top_n=3):
     # Retrieve the list of events the guest has already registered for (to exclude from recommendations)
     train_data = get_data_for_recommendation(session)
     registered_event_ids = []
+    guest_profiles = pd.DataFrame()
     if not train_data.empty:
+        guest_profiles = compute_guest_profiles(train_data)
         registered_event_ids = train_data[train_data['guest_id'] == guest_id]['event_id'].tolist()
         
     candidates = upcoming[~upcoming['event_id'].isin(registered_event_ids)].copy()
@@ -94,7 +132,9 @@ def get_recommended_events(session, guest_id, top_n=3):
         return candidates.head(top_n)
         
     # Preprocess candidate dataset to prepare for prediction
-    cand_processed = preprocess_features(candidates)
+    # Candidates need a guest_id column so the merge works!
+    candidates['guest_id'] = guest_id
+    cand_processed = preprocess_features(candidates, guest_profiles)
     if 'base_price' in cand_processed.columns:
         cand_processed['base_price'] = pd.to_numeric(cand_processed['base_price'], errors='coerce').fillna(0.0)
     

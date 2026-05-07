@@ -75,7 +75,7 @@ A comprehensive Event Management platform focusing on organizing, financial trac
 |:------------|:-------------|:----------|
 | admin       | admin123     | Admin     |
 | staff01     | staff123     | Staff     |
-| organizer01 | organizer123 | Organizer |
+| organizer01 | org123 | Organizer |
 | guest01     | guest123     | Guest     |
 | guest02     | guest123     | Guest     |
 | guest03     | guest123     | Guest     |

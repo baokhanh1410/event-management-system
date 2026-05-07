@@ -131,7 +131,7 @@ def main():
     print("  Default accounts:")
     print("    admin   / admin123  (Admin)")
     print("    staff01 / staff123  (Staff)")
-    print("    organizer01 / organizer123  (Organizer)")
+    print("    organizer01 / org123  (Organizer)")
     print("    guest01 / guest123  (Guest)")
     print("    guest02 / guest123  (Guest)")
     print("    guest03 / guest123  (Guest)")

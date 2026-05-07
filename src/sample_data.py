@@ -99,19 +99,20 @@ def generate_seed_data():
             o_id = random.randint(1, NUM_EVENTS)
             status = event_statuses[i]
             
-            # Calculate base_price from planned_budget and expected check-in count
-            planned = round(random.uniform(5000.0, 20000.0), 2)
+            # Independently generate base_price between $20 and $300
+            base_price = round(random.uniform(20.0, 300.0), 2)
+            
             checkin_count = sum(1 for _, att, _ in event_reg_map[i] if att)
             total_regs = len(event_reg_map[i])
             
-            if checkin_count > 0:
-                # Calculate base_price so revenue (checkin × price) ≈ planned × markup
-                markup = random.uniform(1.0, 1.5)
-                base_price = round((planned * markup) / checkin_count, 2)
-                # Keep within a reasonable range 20–800
-                base_price = max(20.0, min(800.0, base_price))
-            else:
-                base_price = round(random.uniform(50.0, 300.0), 2)
+            # Compute planned budget based on base_price and expected attendance
+            expected_attendance = max(10, int(total_regs * random.uniform(0.8, 1.5)))
+            
+            # Planned budget should be slightly less than expected revenue to allow for profit
+            # e.g., cost is 60% to 85% of expected revenue
+            expected_revenue = base_price * expected_attendance
+            cost_ratio = random.uniform(0.60, 0.85)
+            planned = round(expected_revenue * cost_ratio, 2)
             
             event_data[i] = {'planned': planned, 'checkin_count': checkin_count}
             
@@ -127,11 +128,11 @@ def generate_seed_data():
                 f.write(f"INSERT INTO event_categories (event_id, category_id) VALUES ({i}, {cat_id});\n")
 
         # 4.2 Sample data for Event Finance
-        # actual_cost = planned_budget × uniform(0.8, 1.2) — variance ±20%
+        # actual_cost = planned_budget × uniform(0.9, 1.1) — variance ±10%
         f.write("\n-- Data for Event Finances\n")
         for i in range(1, NUM_EVENTS + 1):
             planned = event_data[i]['planned']
-            actual = round(planned * random.uniform(0.8, 1.2), 2)
+            actual = round(planned * random.uniform(0.9, 1.1), 2)
             f.write(f"INSERT INTO event_finance (finance_id, event_id, planned_budget, actual_cost) VALUES ({i}, {i}, {planned}, {actual});\n")
 
         # 5. Sample data for Guests

@@ -204,18 +204,16 @@ SELECT
     e.event_date,
     e.status,
     f.planned_budget,
-    ROUND(
-        COALESCE(SUM(CASE WHEN r.attendance_status = 1 THEN 1 ELSE 0 END), 0) * e.base_price, 2
-    ) AS actual_cost,
+    f.actual_cost,
     ROUND(
         COALESCE(COUNT(r.registration_id), 0) * e.base_price, 2
     ) AS revenue,
-    ROUND(f.planned_budget - (COALESCE(SUM(CASE WHEN r.attendance_status = 1 THEN 1 ELSE 0 END), 0) * e.base_price), 2) AS variance,
+    ROUND(f.planned_budget - f.actual_cost, 2) AS variance,
     ROUND(
-        (COALESCE(COUNT(r.registration_id), 0) * e.base_price) - (COALESCE(SUM(CASE WHEN r.attendance_status = 1 THEN 1 ELSE 0 END), 0) * e.base_price), 2
+        (COALESCE(COUNT(r.registration_id), 0) * e.base_price) - f.actual_cost, 2
     ) AS profit
 FROM event_finance f
 JOIN events e ON f.event_id = e.event_id
 LEFT JOIN registrations r ON e.event_id = r.event_id
-GROUP BY f.finance_id, e.event_id, e.event_name, e.event_date, e.status, e.base_price, f.planned_budget
+GROUP BY f.finance_id, e.event_id, e.event_name, e.event_date, e.status, e.base_price, f.planned_budget, f.actual_cost
 ORDER BY e.event_date DESC;

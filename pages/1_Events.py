@@ -73,7 +73,6 @@ if st.session_state.user_info.get('role') == 'Guest' and st.session_state.user_i
     st.divider()
     st.subheader("🌟 Recommendations Just For You")
     
-    @st.cache_data(ttl=3600)
     def fetch_recommendations(gid):
         temp_session = get_session()
         try:
