@@ -235,7 +235,11 @@ def create_registration(session, event_id, guest_id):
         return True, "Registration successful!"
     except Exception as e:
         session.rollback()
-        return False, f"Error: {str(e)}"
+        error_msg = str(e)
+        if ']' in error_msg:
+            parts = error_msg.split(']', 1)
+            error_msg = parts[1].strip() if len(parts) > 1 else error_msg
+        return False, f"Error: {error_msg}"
 
 def check_in_guest(session, registration_id):
     """Invoke Stored Procedure sp_check_in_guest to check-in a guest."""

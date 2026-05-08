@@ -28,10 +28,12 @@ def generate_seed_data():
 
         # 1. Sample data for Venues
         f.write("-- Data for Venues\n")
+        venue_capacities = {}
         for i in range(1, NUM_EVENTS + 1):
             name = escape_str(fake.company() + " Center")
             addr = escape_str(fake.address().replace('\n', ', '))
-            capacity = random.randint(100, 1000)
+            capacity = random.randint(100, 200)
+            venue_capacities[i] = capacity
             f.write(f"INSERT INTO venues (venue_id, venue_name, venue_address, capacity) VALUES ({i}, '{name}', '{addr}', {capacity});\n")
 
         # 2. Sample data for Organizers
@@ -63,10 +65,23 @@ def generate_seed_data():
         for i in range(1, NUM_EVENTS + 1):
             event_reg_map[i] = []
         
+        # Pick 5 popular events that will likely reach capacity
+        popular_events = set(random.sample(range(1, NUM_EVENTS + 1), 5))
+
         for g_id in range(1, NUM_GUESTS + 1):
-            num_events = random.randint(1, 4)
-            selected_events = random.sample(range(1, NUM_EVENTS + 1), num_events)
+            num_events = random.randint(2, 6)
+            selected_events = set(random.sample(range(1, NUM_EVENTS + 1), num_events))
+            
+            # High chance to join popular events
+            for p_event in popular_events:
+                if random.random() < 0.6:
+                    selected_events.add(p_event)
+            
             for e_id in selected_events:
+                # Check capacity before assigning
+                if len(event_reg_map[e_id]) >= venue_capacities[e_id]:
+                    continue
+                
                 # Check-in rate depends on event status
                 status = event_statuses[e_id]
                 if status == 'Completed':
@@ -95,7 +110,7 @@ def generate_seed_data():
             end_dt = start_dt + timedelta(hours=random.randint(1, 4))
             end_str = end_dt.strftime('%Y-%m-%d %H:%M:%S')
             
-            v_id = random.randint(1, NUM_EVENTS)
+            v_id = i # Event uses its own venue for 1-to-1 mapping
             o_id = random.randint(1, NUM_EVENTS)
             status = event_statuses[i]
             

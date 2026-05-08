@@ -171,6 +171,38 @@ END //
 DELIMITER ;
 
 -- ============================================================
+-- TRIGGERS
+-- ============================================================
+
+-- Trigger: Enforce Event Capacity
+DELIMITER //
+CREATE TRIGGER trg_enforce_capacity
+BEFORE INSERT ON registrations
+FOR EACH ROW
+BEGIN
+    DECLARE v_capacity INT;
+    DECLARE v_current_registrations INT;
+
+    -- Get venue capacity for the event
+    SELECT v.capacity INTO v_capacity
+    FROM events e
+    JOIN venues v ON e.venue_id = v.venue_id
+    WHERE e.event_id = NEW.event_id;
+
+    -- Get current registration count
+    SELECT COUNT(*) INTO v_current_registrations
+    FROM registrations
+    WHERE event_id = NEW.event_id;
+
+    -- Check if capacity is reached
+    IF v_current_registrations >= v_capacity THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Event capacity reached.';
+    END IF;
+END //
+DELIMITER ;
+
+-- ============================================================
 -- VIEWS
 -- ============================================================
 
