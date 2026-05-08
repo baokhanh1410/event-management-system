@@ -40,8 +40,13 @@ try:
     events_df = get_all_events(session)
     if not events_df.empty:
         display_df = events_df.copy()
-        display_df = display_df[['event_id', 'event_name', 'categories', 'event_date', 'venue_name', 'organizer_name', 'status', 'base_price']]
-        display_df.columns = ['ID', 'Event Name', 'Category', 'Date', 'Venue', 'Organizer', 'Status', 'Base Price ($)']
+        display_df['Availability'] = display_df.apply(
+            lambda x: "Sold Out" if x['current_registrations'] >= x['capacity'] 
+            else f"{x['capacity'] - x['current_registrations']} spots left", 
+            axis=1
+        )
+        display_df = display_df[['event_id', 'event_name', 'categories', 'event_date', 'venue_name', 'organizer_name', 'status', 'base_price', 'Availability']]
+        display_df.columns = ['ID', 'Event Name', 'Category', 'Date', 'Venue', 'Organizer', 'Status', 'Base Price ($)', 'Availability']
         st.dataframe(display_df, use_container_width=True, hide_index=True)
     else:
         st.info("There are no events in the system yet.")
@@ -109,24 +114,42 @@ if st.session_state.user_info.get('role') == 'Guest' and st.session_state.user_i
             with col2:
                 st.text_input("Phone Number", value=profile['phone'], disabled=True)
                 events_list_df = get_available_events_for_guest(session, guest_id)
+                selected_is_full = False
                 if not events_list_df.empty:
-                    guest_event_options = dict(zip(events_list_df['event_name'], events_list_df['event_id']))
-                    selected_event_name = st.selectbox("Select an event to join", list(guest_event_options.keys()))
+                    options_list = []
+                    guest_event_options = {}
+                    for _, row in events_list_df.iterrows():
+                        is_full = row['current_registrations'] >= row['capacity']
+                        if is_full:
+                            name_display = f"{row['event_name']} (Sold Out)"
+                        else:
+                            name_display = f"{row['event_name']} ({row['capacity'] - row['current_registrations']} spots left)"
+                        options_list.append(name_display)
+                        guest_event_options[name_display] = {
+                            'id': row['event_id'],
+                            'is_full': is_full
+                        }
+                    
+                    selected_event_name = st.selectbox("Select an event to join", options_list)
+                    if selected_event_name:
+                        selected_is_full = guest_event_options[selected_event_name]['is_full']
                 else:
                     st.info("You have joined all available events.")
                     guest_event_options = {}
                     selected_event_name = None
                 
-            submit_reg = st.form_submit_button("Confirm Registration")
+            submit_reg = st.form_submit_button("Confirm Registration", disabled=selected_is_full)
             if submit_reg:
-                if selected_event_name:
-                    selected_event_id = guest_event_options[selected_event_name]
+                if selected_event_name and not selected_is_full:
+                    selected_event_id = guest_event_options[selected_event_name]['id']
                     success, msg = create_registration(session, selected_event_id, guest_id)
                     if success:
                         st.session_state['success_msg'] = "🎉 " + msg
                         st.rerun()
                     else:
                         st.error(msg)
+                elif selected_is_full:
+                    st.error("This event is sold out.")
                 else:
                     st.error("There are no events available for registration.")
 

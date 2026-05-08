@@ -6,16 +6,19 @@ from sqlalchemy import text
 # ============================================================
 
 def get_all_events(session):
-    """Fetch list of events including venue, organizer, and categories."""
+    """Fetch list of events including venue, organizer, categories, capacity, and current registrations."""
     query = text("""
         SELECT e.event_id, e.event_name, e.event_date, v.venue_name, o.organizer_name, e.status, e.base_price,
-               GROUP_CONCAT(c.category_name SEPARATOR ', ') as categories
+               GROUP_CONCAT(c.category_name SEPARATOR ', ') as categories,
+               v.capacity,
+               COALESCE(r_count.cnt, 0) as current_registrations
         FROM events e
         JOIN venues v ON e.venue_id = v.venue_id
         LEFT JOIN organizers o ON e.organizer_id = o.organizer_id
+        LEFT JOIN (SELECT event_id, COUNT(*) as cnt FROM registrations GROUP BY event_id) r_count ON e.event_id = r_count.event_id
         LEFT JOIN event_categories ec ON e.event_id = ec.event_id
         LEFT JOIN categories c ON ec.category_id = c.category_id
-        GROUP BY e.event_id, e.event_name, e.event_date, v.venue_name, o.organizer_name, e.status, e.base_price
+        GROUP BY e.event_id, e.event_name, e.event_date, v.venue_name, o.organizer_name, e.status, e.base_price, v.capacity, r_count.cnt
         ORDER BY e.event_date DESC
     """)
     with session.get_bind().connect() as conn:
@@ -146,12 +149,14 @@ def get_events_list(session):
 def get_available_events_for_guest(session, guest_id):
     """Return a list of events that a specific guest HAS NOT REGISTERED for yet."""
     query = text("""
-        SELECT event_id, event_name 
-        FROM events 
-        WHERE event_id NOT IN (
+        SELECT e.event_id, e.event_name, v.capacity, COALESCE(r_count.cnt, 0) as current_registrations
+        FROM events e
+        JOIN venues v ON e.venue_id = v.venue_id
+        LEFT JOIN (SELECT event_id, COUNT(*) as cnt FROM registrations GROUP BY event_id) r_count ON e.event_id = r_count.event_id
+        WHERE e.event_id NOT IN (
             SELECT event_id FROM registrations WHERE guest_id = :gid
         )
-        ORDER BY event_date DESC
+        ORDER BY e.event_date DESC
     """)
     with session.get_bind().connect() as conn:
         df = pd.read_sql(query, conn, params={"gid": guest_id})
@@ -195,7 +200,7 @@ def get_guest_own_registrations(session, event_id, guest_id):
     return df
 
 def create_registration(session, event_id, guest_id):
-    """Register a guest for an event. Check for duplicates before inserting."""
+    """Register a guest for an event. Check for duplicates and capacity before inserting."""
     # Check if already registered
     check_query = text("""
         SELECT COUNT(*) as cnt FROM registrations
@@ -204,6 +209,20 @@ def create_registration(session, event_id, guest_id):
     result = session.execute(check_query, {"eid": event_id, "gid": guest_id}).fetchone()
     if result[0] > 0:
         return False, "This guest has already registered for this event!"
+
+    # Check capacity
+    capacity_query = text("""
+        SELECT v.capacity, (SELECT COUNT(*) FROM registrations r WHERE r.event_id = :eid) as current_registrations
+        FROM events e
+        JOIN venues v ON e.venue_id = v.venue_id
+        WHERE e.event_id = :eid
+    """)
+    capacity_result = session.execute(capacity_query, {"eid": event_id}).fetchone()
+    if capacity_result:
+        venue_capacity = capacity_result[0]
+        current_registrations = capacity_result[1]
+        if current_registrations >= venue_capacity:
+            return False, "This event has reached its maximum capacity and is sold out!"
 
     # Insert new registration
     insert_query = text("""
